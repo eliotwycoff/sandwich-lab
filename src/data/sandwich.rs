@@ -69,47 +69,75 @@ impl<'bun> Sandwich<'bun> {
     }
 
     pub async fn fetch_gas(&self, provider_url: &str) -> (f64, f64, f64) {
-        // Create a handle to get the frontrunning transaction.
+        // Create a handle to get the frontrunning transaction and transaction receipt.
         let url = provider_url.to_string();
         let hash = self.frontrun.tx_hash;
         let frontrun_handle = tokio::spawn(async move {
             let provider = Provider::<Http>::try_from(url).expect("unable to connect to provider");
-            provider.get_transaction(hash).await.expect("unable to fetch frontrunning transaction")
+
+            let tx = provider.get_transaction(hash).await
+                .expect("unable to fetch frontrunning transaction");
+            let tx_receipt = provider.get_transaction_receipt(hash).await
+                .expect("unable to fetch frontrunning transaction receipt");
+            
+            (tx, tx_receipt)
         });
 
-        // Create a handle to get the lunchmeat transaction.
+        // Create a handle to get the lunchmeat transaction and transaction receipt.
         let url = provider_url.to_string();
         let hash = self.lunchmeat.tx_hash;
         let lunchmeat_handle = tokio::spawn(async move {
             let provider = Provider::<Http>::try_from(url).expect("unable to connect to provider");
-            provider.get_transaction(hash).await.expect("unable to fetch lunchmeat transaction")
+
+            let tx = provider.get_transaction(hash).await
+                .expect("unable to fetch lunchmeat transaction");
+            let tx_receipt = provider.get_transaction_receipt(hash).await
+                .expect("unable to fetch lunchmeat transaction receipt");
+
+            (tx, tx_receipt)
         });
 
-        // Create a handle to get the backrunning transaction.
+        // Create a handle to get the backrunning transaction and transaction receipt.
         let url = provider_url.to_string();
         let hash = self.backrun.tx_hash;
         let backrun_handle = tokio::spawn(async move {
             let provider = Provider::<Http>::try_from(url).expect("unable to connect to provider");
-            provider.get_transaction(hash).await.expect("unable to fetch backrunning transaction")
+
+            let tx = provider.get_transaction(hash).await 
+                .expect("unable to fetch backrunning transaction");
+            let tx_receipt = provider.get_transaction_receipt(hash).await
+                .expect("unable to fetch backrunning transaction receipt");
+
+            (tx, tx_receipt)
         });
 
-        // Concurrently get all the transactions back.
-        let frontrun_tx = frontrun_handle.await.unwrap().unwrap();
-        let lunchmeat_tx = lunchmeat_handle.await.unwrap().unwrap();
-        let backrun_tx = backrun_handle.await.unwrap().unwrap();
+        // Concurrently get all the transactions and transaction receipts back.
+        let frontrun_data = frontrun_handle.await.unwrap();
+        let lunchmeat_data = lunchmeat_handle.await.unwrap();
+        let backrun_data = backrun_handle.await.unwrap();
+
+        let frontrun_tx = frontrun_data.0.unwrap();
+        let lunchmeat_tx = lunchmeat_data.0.unwrap();
+        let backrun_tx = backrun_data.0.unwrap();
+
+        let frontrun_tx_receipt = frontrun_data.1.unwrap();
+        let lunchmeat_tx_receipt = lunchmeat_data.1.unwrap();
+        let backrun_tx_receipt = backrun_data.1.unwrap();
+
 
         // Compute and format the gas costs.
-        let frontrun_gas = match frontrun_tx.gas_price.unwrap().checked_mul(frontrun_tx.gas) {
+
+        let frontrun_gas = match frontrun_tx.gas_price.unwrap().checked_mul(frontrun_tx_receipt.gas_used.unwrap()) {
             Some(value) => format_units(value, 18 as u32).unwrap().parse::<f64>().unwrap(),
             None => 0.0 as f64
         };
 
-        let lunchmeat_gas = match lunchmeat_tx.gas_price.unwrap().checked_mul(lunchmeat_tx.gas) {
+        let lunchmeat_gas = match lunchmeat_tx.gas_price.unwrap().checked_mul(lunchmeat_tx_receipt.gas_used.unwrap()) {
             Some(value) => format_units(value, 18 as u32).unwrap().parse::<f64>().unwrap(),
             None => 0.0 as f64
         };
 
-        let backrun_gas = match backrun_tx.gas_price.unwrap().checked_mul(backrun_tx.gas) {
+        let backrun_gas = match backrun_tx.gas_price.unwrap().checked_mul(backrun_tx_receipt.gas_used.unwrap()) {
             Some(value) => format_units(value, 18 as u32).unwrap().parse::<f64>().unwrap(),
             None => 0.0 as f64
         };
