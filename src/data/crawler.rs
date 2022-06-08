@@ -2,6 +2,8 @@ use ethers::prelude::{ Provider, Http, Middleware, Contract, Multicall, LogMeta 
 use ethers::abi::{ Abi, AbiParser };
 use ethers::types::{ Address };
 use ethers::utils::{ hex };
+use colored::*;
+use digit_group::{ FormatGroup };
 
 use std::sync::{ Arc };
 use std::vec::{ Vec };
@@ -46,7 +48,7 @@ impl<'main> Crawler<'main> {
             //"0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc",
             //"0x9928e4046d7c6513326ccea028cd3e7a91c7590a",
             //"0x21b8065d10f73ee2e260e5b47d3344d3ced7596e",
-            //"0xe1573b9d29e2183b1af0e743dc2754979a40d237",
+            "0xe1573b9d29e2183b1af0e743dc2754979a40d237",
             //"0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852",
             //"0x61b62c5d56ccd158a38367ef2f539668a06356ab",
             //"0xccb63225a7b19dcf66717e4d40c9a72b39331d61",
@@ -127,7 +129,13 @@ impl<'main> Crawler<'main> {
         let contract = Contract::new(address, self.pair_abi.clone(), provider.clone());
 
         loop {
-            println!("Fetching {} sandwiches from blocks {} to {}\n", pair.ticker(), end_block - chunk_size, end_block);
+            let fetch_string = format!(
+                "\nFetching {} sandwiches from blocks {} to {}\n", 
+                pair.ticker(), 
+                (end_block - chunk_size).format_commas(), 
+                end_block.format_commas()).green().bold();
+
+            println!("{}", fetch_string);
 
             // Get all swaps for the chosen pair and block window.
             let raw_swaps: Vec<(RawSwap, LogMeta)> = contract.event()
@@ -137,9 +145,8 @@ impl<'main> Crawler<'main> {
 
             let total_swaps = raw_swaps.len();
 
-            println!(" -- Statistics -- ");
-            println!("Total Blocks Scanned : {}", chunk_size + 1);
-            println!("Total Swaps Completed: {}", total_swaps);
+            println!("Total Blocks Scanned : {}", (chunk_size + 1).format_commas());
+            println!("Total Swaps Completed: {}", total_swaps.format_commas());
 
             let swaps: Vec<Swap> = raw_swaps.into_iter().map(|raw_swap| Swap::from(raw_swap)).collect();
 
@@ -158,7 +165,7 @@ impl<'main> Crawler<'main> {
                 }
             }
 
-            println!("Blocks with 3+ Swaps : {}", swaps_by_block.keys().len());
+            println!("Blocks with 3+ Swaps : {}", swaps_by_block.keys().len().format_commas());
 
             // Look for and print out any sandwich trades in the blocks with at least three swaps. 
             let mut num_sandwiches = 0;
@@ -170,7 +177,8 @@ impl<'main> Crawler<'main> {
                 
                 if sandwiches.len() > 0 {
                     if num_sandwiches == 0 {
-                        println!("* Sandwiches Found! *\n");
+                        let found_string = "Sandwiches Found!".bold();
+                        println!("{}\n", found_string);
                     }
                 }
 
@@ -191,7 +199,7 @@ impl<'main> Crawler<'main> {
 
             if num_sandwiches == 0 {
                 // Let the user know that no sandwiches were found, but the search continues.
-                println!("* No Sandwiches *\n");
+                println!("No sandwiches were found.");
             } else {
                 // Give the user a chance to review the data and continue whenever ready.
                 print!("Continue? (y/n) : ");

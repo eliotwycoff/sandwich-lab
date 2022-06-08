@@ -9,3 +9,5 @@ edition = "2021"
 tokio = { version = "1.19.0", features = ["full"] }
 dotenv = "0.15.0"
 ethers = "0.6.2"
+colored = "2.0.0"
+digit_group = "0.1.0"

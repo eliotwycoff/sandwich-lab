@@ -3,10 +3,12 @@ use ethers::types::{ Address, U64, U256, TxHash };
 use ethers::utils::{ hex, format_units };
 use ethers::core as ethers_core;
 use ethers::contract as ethers_contract;
+use colored::*;
+use digit_group::{ FormatGroup };
 
 use std::convert::From;
 
-use super::{ Token };
+use super::{ Token, Transaction };
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Swap {
@@ -69,11 +71,15 @@ impl Swap {
         let symbol1 = token1.symbol();
 
         if amt0 > 0.0 && amt1 > 0.0 {
-            format!("{} {} & {} {}", amt0, symbol0, amt1, symbol1)
+            format!("{} {} & {} {}", 
+            amt0.format_commas().yellow(), 
+            symbol0.yellow(), 
+            amt1.format_commas().blue(), 
+            symbol1.blue())
         } else if amt0 > 0.0 {
-            format!("{} {}", amt0, symbol0)
+            format!("{} {}", amt0.format_commas().yellow(), symbol0.yellow())
         } else if amt1 > 0.0 {
-            format!("{} {}", amt1, symbol1)
+            format!("{} {}", amt1.format_commas().blue(), symbol1.blue())
         } else {
             "".to_string()
         }
@@ -84,6 +90,10 @@ impl Swap {
             self.tx_hash(),
             self.in_out_str(token0, token1, true),
             self.in_out_str(token0, token1, false))
+    }
+
+    pub async fn fetch_transaction(&self, provider_url: String) -> Transaction {
+        Transaction::from_hash(provider_url, self.tx_hash).await
     }
 
     fn u256_to_f64(u256: U256, decimals: u8) -> f64 {
